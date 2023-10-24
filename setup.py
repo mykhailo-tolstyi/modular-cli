@@ -33,10 +33,10 @@ setup(
     include_package_data=True,
     install_requires=[
         'click==7.1.2',
-        'tabulate==0.8.9',
-        'PyYAML==6.0.0',
-        'requests==2.27.1',
-        'prettytable==3.2.0'
+        'tabulate==0.9.0',
+        'PyYAML==6.0.1',
+        'requests==2.31.0',
+        'prettytable==3.9.0'
     ],
     entry_points=f'''
         [console_scripts]

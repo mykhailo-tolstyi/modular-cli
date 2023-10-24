@@ -31,7 +31,7 @@ def is_env_variable(variable_name):
 
 
 def get_log_path():
-    log_path = os.getenv(CUSTOM_LOG_PATH)
+    log_path = os.getenv('SERVICE_LOGS')
     return log_path
 
 
@@ -64,7 +64,7 @@ def create_path_for_logs():
     # Creating full name of the path to the log directory
     custom_log_path = get_log_path()
     if custom_log_path:
-        path = os.path.join(custom_log_path, TOOL_FOLDER_NAME, USER_NAME)
+        path = os.path.join(custom_log_path, USER_NAME)
     elif os_name == 'posix':
         path = os.path.join('/var/log', TOOL_FOLDER_NAME, USER_NAME)
     else:

@@ -7,6 +7,7 @@ import click
 import yaml
 from prettytable import PrettyTable
 
+from modular_cli import ENTRY_POINT
 from modular_cli.service.config import save_configuration, add_data_to_config, \
     clean_up_configuration, ROOT_ADMIN_VERSION
 from modular_cli.service.help_client import SetupCommandHandler, LoginCommandHandler, \
@@ -54,15 +55,15 @@ CONFIRMATION_MESSAGE = 'The command`s response is pretty huge and the ' \
                        'to show the response in the JSON format? [y/n]: '
 
 SETUP_COMMAND_HELP = \
-    f'Usage: $entry_point_name setup [parameters]{os.linesep}' \
+    f'Usage: {ENTRY_POINT} setup [parameters]{os.linesep}' \
     f'Parameters:{os.linesep}     --username,   Access key ' \
     f'associated with the Maestro user{os.linesep}     --password,   Secret ' \
     f'key associated with the Maestro user{os.linesep}     --api_path,   ' \
     f'Address of the Maestro environment.'
-LOGIN_COMMAND_HELP = f'{os.linesep}Usage: $entry_point_name login{os.linesep}' \
+LOGIN_COMMAND_HELP = f'{os.linesep}Usage: {ENTRY_POINT} login{os.linesep}' \
                      f'{os.linesep}Returns JWT token and commands meta in ' \
                      f'accordance with the user\'s permissions'
-CLEANUP_COMMAND_HELP = f'{os.linesep}Usage: $entry_point_name cleanup [parameters]' \
+CLEANUP_COMMAND_HELP = f'{os.linesep}Usage: {ENTRY_POINT} cleanup [parameters]' \
                        f'{os.linesep}{os.linesep}Removes all the ' \
                        f'configuration data related to the tool.'
 INVOCATIONS_COUNTER = 0
@@ -235,7 +236,7 @@ def login_command_handler(config_command_help, config_params):
     adapter_sdk = init_configuration()
     if not adapter_sdk:
         click.echo(
-            f'API link is not configured. Run \'$entry_point_name configure'
+            f'API link is not configured. Run \'{ENTRY_POINT} configure'
             f'\' and try again.')
         return
     server_response = adapter_sdk.login()

@@ -5,6 +5,7 @@ from abc import abstractmethod, ABC
 import click
 from tabulate import tabulate
 
+from modular_cli import ENTRY_POINT
 from modular_cli.modular_cli_autocomplete.complete_handler import enable_autocomplete_handler, \
     disable_autocomplete_handler
 from modular_cli.service.config import save_configuration, clean_up_configuration, \
@@ -22,14 +23,14 @@ HELP_STUB = 'Here are the commands supported by the current version ' \
             'can execute depends on your user permissions.'
 
 GENERAL_HELP_STRING = """Description: {help_stub}
-Usage: $entry_poin_name [module] group [subgroup] command [parameters]
+Usage: {entry_point} [module] group [subgroup] command [parameters]
 Options:
   --help     Show this message and exit.
   
 """
 
 COMMAND_HELP_STRING = """Description: {command_description}
-Usage: $entry_point_name {usage} [parameters]
+Usage: {entry_point} {usage} [parameters]
 Parameters:
 {parameters}
 """
@@ -142,7 +143,8 @@ class HelpProcessor:
         if not level_token_types:
             return ANY_COMMANDS_AVAILABLE_HELP.format(help_stub=HELP_STUB)
 
-        help: str = GENERAL_HELP_STRING.format(help_stub=HELP_STUB)
+        help: str = GENERAL_HELP_STRING.format(
+            help_stub=HELP_STUB, entry_point=ENTRY_POINT)
         if level_token_types.get('root command'):
             root_command = level_token_types.pop('root command')
             if level_token_types.get('command'):
@@ -213,6 +215,7 @@ class HelpProcessor:
         if not pretty_params:
             pretty_params = 'No parameters declared'
         return COMMAND_HELP_STRING.format(
+            entry_point=ENTRY_POINT,
             command_description=token_meta.get('description'),
             usage=' '.join(specified_tokens),
             parameters=pretty_params)
@@ -291,9 +294,8 @@ class AbstractStaticCommands(ABC):
 
 class SetupCommandHandler(AbstractStaticCommands):
     def define_description(self):
-        # todo add auto resolving for $entry_point_name placeholder
         setup_command_help = \
-            f'Usage: $entry_point_name setup [parameters]{os.linesep}' \
+            f'Usage: {ENTRY_POINT} setup [parameters]{os.linesep}' \
             f'Parameters:{os.linesep}     --username,   User name ' \
             f'associated with the Maestro user{os.linesep}     --password,  ' \
             f' Password associated with the Maestro user{os.linesep}  ' \
@@ -326,8 +328,7 @@ class SetupCommandHandler(AbstractStaticCommands):
 
 class LoginCommandHandler(AbstractStaticCommands):
     def define_description(self):
-        # todo add auto resolving of $entry_point_name placeholder
-        login_command_help = f'{os.linesep}Usage: $entry_point_name login' \
+        login_command_help = f'{os.linesep}Usage: {ENTRY_POINT} login' \
                              f'{os.linesep}{os.linesep}Returns JWT token and' \
                              f' commands meta in accordance with the user\'s ' \
                              f'permissions'
@@ -364,7 +365,7 @@ class LoginCommandHandler(AbstractStaticCommands):
 
 class CleanupCommandHandler(AbstractStaticCommands):
     def define_description(self):
-        cleanup_command_help = f'{os.linesep}Usage: Modular-CLI cleanup' \
+        cleanup_command_help = f'{os.linesep}Usage: {ENTRY_POINT} cleanup' \
                                f'{os.linesep}{os.linesep}Removes all the ' \
                                f'configuration data related to the tool.'
         click.echo(cleanup_command_help)
@@ -378,8 +379,7 @@ class CleanupCommandHandler(AbstractStaticCommands):
 
 class EnableAutocompleteCommandHandler(AbstractStaticCommands):
     def define_description(self):
-        # todo add auto resolving for $entry_point_name placeholder
-        enable_autocomplete_command_help = f'{os.linesep}Usage: $entry_point_name ' \
+        enable_autocomplete_command_help = f'{os.linesep}Usage: {ENTRY_POINT} ' \
                                            f'(then press tab)' \
                                            f'{os.linesep}{os.linesep} Gives' \
                                            f' you suggestions ' \
@@ -411,9 +411,8 @@ class DisableAutocompleteCommandHandler(AbstractStaticCommands):
 
 class VersionCommandHandler(AbstractStaticCommands):
     def define_description(self):
-        # todo add auto resolving of $entry_point_name placeholder
         version_command_help = \
-            f'Usage: $entry_point_name login [parameters]{os.linesep}' \
+            f'Usage: {ENTRY_POINT} login [parameters]{os.linesep}' \
             f'Parameters:{os.linesep}     --module,   Describes specified ' \
             f'module version{os.linesep}     --detailed,  ' \
             f' Describes all module(s) version'

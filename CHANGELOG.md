@@ -1,6 +1,30 @@
 CHANGELOG
 =========
 
+# [2.0.0] - 2023-09-25
+* Update libraries to support Python 3.10:
+  * `prettytable` from 3.2.0 to 3.9.0
+  * `PyYAML` from 6.0 to 6.0.1
+  * `requests` from 2.27.1 to 2.31.0
+  * `tabulate` from 0.8.9 to 0.9.0
+  * `typing_extensions` from 4.2.0 to 4.7.1
+  * `zipp` from 3.8.0 to 3.12.0
+  * `wcwidth` from 0.2.5 to 0.2.6
+
+## [1.2.9] - 2023-07-24
+* Add dynamic resolving of console script` entry point to improve help-strings 
+templates
+
+## [1.2.9] - 2023-08-02
+* Add ability to set custom log path by environment variable `SERVICE_LOGS` [EPMCEOOS-5023]
+
+## [1.2.8] - 2023-07-24
+* Add ability to set up entry point for console script by env. variable named 
+`MODULAR_CLI_ENTRY_POINT`
+
+## [1.2.7] - 2023-07-20
+* Repository structure refactoring
+
 ## [1.2.6] - 2023-06-08
 * Update README.md file for Open Source
 

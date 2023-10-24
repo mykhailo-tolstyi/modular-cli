@@ -5,6 +5,7 @@ from pathlib import Path
 import requests
 import yaml
 
+from modular_cli import ENTRY_POINT
 from modular_cli.utils.exceptions import ModularCliConfigurationException, \
     ModularCliBadRequestException
 from modular_cli.utils.logger import get_logger, get_user_logger
@@ -99,10 +100,9 @@ class ConfigurationProvider:
     def __init__(self):
         self.config_path = get_credentials_folder() / CREDENTIALS_FILE_NAME
         if not os.path.exists(self.config_path):
-            # todo add auto resolving for $entry_point_name placeholder
             raise ModularCliConfigurationException(
-                'The Modular-CLI tool is not setup. Please execute the '
-                'following command: \'$entry_point_name setup\'')
+                f'The Modular-CLI tool is not setup. Please execute the '
+                f'following command: \'{ENTRY_POINT} setup\'')
         self.config_dict = None
         with open(self.config_path, 'r') as config_file:
             self.config_dict = yaml.safe_load(config_file.read())
