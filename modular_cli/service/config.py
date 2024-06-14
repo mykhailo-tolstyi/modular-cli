@@ -6,34 +6,30 @@ import requests
 import yaml
 
 from modular_cli import ENTRY_POINT
-from modular_cli.utils.exceptions import ModularCliConfigurationException, \
-    ModularCliBadRequestException
-from modular_cli.utils.logger import get_logger, get_user_logger
-from modular_cli.utils.variables import (TOOL_FOLDER_NAME, TOOL_CONFIGURATION_FOLDER,
-                                 CREDENTIALS_FILE_NAME,
-                                 TEMPORARY_CREDS_FILENAME,
-                                 COMMANDS_META, DEFAULT_CONNECTION_TIMEOUT)
+from modular_cli.utils.exceptions import (
+    ModularCliConfigurationException, ModularCliBadRequestException,
+)
+from modular_cli.utils.logger import get_logger
+from modular_cli.utils.variables import (
+    TOOL_FOLDER_NAME, TOOL_CONFIGURATION_FOLDER, CREDENTIALS_FILE_NAME,
+    TEMPORARY_CREDS_FILENAME, COMMANDS_META, DEFAULT_CONNECTION_TIMEOUT,
+)
 
 SYSTEM_LOG = get_logger(__name__)
-USER_LOG = get_user_logger('user')
 
 
-def save_configuration(api_link: str, username: str, password: str):
-    valid_link = __api_link_validation(link=api_link)
-    if not valid_link:
-        raise ModularCliBadRequestException(f'Invalid API link: {api_link}')
+def save_configuration(api_link: str, username: str, password: str) -> str:
     if api_link.endswith('/'):
         api_link = api_link[:-1]
+    valid_link = __api_link_validation(link=api_link)
     folder_path = get_credentials_folder()
     try:
         folder_path.mkdir(exist_ok=True)
     except OSError:
         SYSTEM_LOG.exception(f'Creation of the directory {folder_path} failed')
-        USER_LOG.info(f'Unable to create configuration folder {folder_path}')
-        return 'Error occurred while configurating tool. Please contact ' \
-               'support team for assistance.'
+        return f'Could not create configuration folder {folder_path}'
 
-    config_data = dict(api_link=api_link,
+    config_data = dict(api_link=valid_link,
                        username=username,
                        password=password)
     with open(folder_path / CREDENTIALS_FILE_NAME, 'w') as config_file:
@@ -54,14 +50,24 @@ def get_credentials_folder() -> Path:
     return (Path.home() / TOOL_CONFIGURATION_FOLDER).resolve()
 
 
-def __api_link_validation(link):
+def __api_link_validation(link: str) -> str:
     try:
-        requests.get(link, timeout=DEFAULT_CONNECTION_TIMEOUT)
+        resp = requests.get(
+            link + '/health_check',
+            timeout=DEFAULT_CONNECTION_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            raise ModularCliBadRequestException(
+                f'API link failed: {link}. '
+                f'Health check was not successful.'
+            )
     except (requests.exceptions.RequestException,
             requests.exceptions.MissingSchema, requests.exceptions.InvalidURL,
             requests.exceptions.ConnectionError,
-            requests.exceptions.InvalidSchema):
-        return
+            requests.exceptions.InvalidSchema) as e:
+        raise ModularCliBadRequestException(
+            f'API link error: {link}. An exception occurred during the request.'
+        ) from e
     return link
 
 

@@ -1,6 +1,24 @@
 CHANGELOG
 =========
 
+# [2.0.5] - 2024-04-19
+* Enhance readability by using the `modular setup` command if an invalid link is
+provided by the user.
+
+# [2.0.4] - 2024-03-05
+* hide error logs when executing cli commands on MacOS
+
+# [2.0.3] - 2024-02-07
+* Update the `README.md` file: 
+  * Add the `Open Source Code` link
+  * Change the `Support` email
+
+# [2.0.2] - 2024-02-07
+* Update python version in the `README.md` file
+
+# [2.0.1] - 2023-10-30
+* Implemented proper bool type command option processing
+
 # [2.0.0] - 2023-09-25
 * Update libraries to support Python 3.10:
   * `prettytable` from 3.2.0 to 3.9.0

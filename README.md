@@ -22,7 +22,7 @@ via HTTP requests.
 <a name="install"></a>
 ## 2. Installation
 
-The installation of Modular-CLI assumed that you have Python3.9 and pip installed.
+The installation of Modular-CLI assumed that you have Python3.10 and pip installed.
 Use the following links to install the tools in case they are not installed.</br>
 
 [Python download page](https://www.python.org/downloads/)
@@ -161,8 +161,7 @@ To deactivate:
 <a name="project_info"></a>
 ## 6. Project information
 
-**Source Code**: https://git.epam.com/epmc-eoos/m3-modular-cli  
-**Documentation**: https://git.epam.com/epmc-eoos/m3-modular-cli/-/blob/develop/README.md  
-**Changelog**: https://git.epam.com/epmc-eoos/m3-modular-cli/-/blob/develop/CHANGELOG.md  
-**Supported Python Version**: 3.9  
-**Support**:  Denys_Lykholit@epam.com` 
+**Open Source Code**: https://github.com/epam/modular-cli   
+**Documentation**: https://github.com/epam/modular-cli/blob/develop/README.md  
+**Changelog**: https://github.com/epam/modular-cli/blob/develop/CHANGELOG.md  
+**Supported Python Version**: 3.10  

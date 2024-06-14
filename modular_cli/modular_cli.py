@@ -1,16 +1,18 @@
 from json import JSONDecodeError
-
+from http import HTTPStatus
 import click
 
-from modular_cli.service.decorators import dynamic_dispatcher, CommandResponse, \
-    ResponseDecorator
-from modular_cli.service.help_client import retrieve_commands_meta_content, \
-    HelpProcessor, LoginCommandHandler
+from modular_cli.service.decorators import (
+    dynamic_dispatcher, CommandResponse, ResponseDecorator,
+)
+from modular_cli.service.help_client import (
+    retrieve_commands_meta_content, HelpProcessor, LoginCommandHandler,
+)
 from modular_cli.service.initializer import init_configuration
 from modular_cli.service.request_processor import prepare_request
 from modular_cli.service.utils import find_token_meta
 from modular_cli.utils.exceptions import ModularCliInternalException
-from modular_cli.utils.variables import RESPONSE_NO_CONTENT, NO_CONTENT_RESPONSE_MESSAGE
+from modular_cli.utils.variables import NO_CONTENT_RESPONSE_MESSAGE
 
 CONTEXT_SETTINGS = dict(allow_extra_args=True,
                         ignore_unknown_options=True)
@@ -62,7 +64,7 @@ def modular_cli(help, command=None, parameters=None, view_type=None):
             resource=resource, parameters=parameters,
             method=method, params_to_log=params_to_log)
     # ===========================================================================
-    if response.status_code == RESPONSE_NO_CONTENT:
+    if response.status_code == HTTPStatus.NO_CONTENT.value:
         return CommandResponse(message=NO_CONTENT_RESPONSE_MESSAGE)
     try:
         response_body = response.json()
@@ -82,7 +84,7 @@ def __is_help_required(token_meta, specified_parameters, help_flag):
         return help_flag
     if not token_meta.get('route'):
         return True
-    required_parameters = [param
-                           for param in token_meta.get('parameters')
-                           if param.get('required')]
+    required_parameters = [
+        param for param in token_meta.get('parameters') if param.get('required')
+    ]
     return required_parameters and not specified_parameters

@@ -1,14 +1,13 @@
-import os
-
 import requests
 
 from modular_cli.service.config import ConfigurationProvider
-from modular_cli.utils.logger import get_logger, get_user_logger
-from modular_cli.utils.exceptions import ModularCliConfigurationException, \
-    ModularCliTimeoutException
+from modular_cli.utils.exceptions import (
+    ModularCliConfigurationException, ModularCliTimeoutException,
+)
+from modular_cli.utils.logger import get_logger
+from modular_cli.version import __version__
 
-SYSTEM_LOG = get_logger('service.adapter_client')
-USER_LOG = get_user_logger('user')
+SYSTEM_LOG = get_logger(__name__)
 
 CONF = ConfigurationProvider()
 
@@ -16,8 +15,6 @@ HTTP_GET = 'GET'
 HTTP_POST = 'POST'
 HTTP_PATCH = 'PATCH'
 HTTP_DELETE = 'DELETE'
-
-ALLOWED_METHODS = [HTTP_GET, HTTP_POST, HTTP_PATCH, HTTP_DELETE]
 
 
 class AdapterClient:
@@ -35,26 +32,10 @@ class AdapterClient:
         }
         SYSTEM_LOG.info('Adapter SDK has been initialized')
 
-    @staticmethod
-    def get_tool_version():
-        from pathlib import Path
-
-        version = {}
-        ver_path = os.path.join(Path(__file__).parent.parent.parent, "version.py")
-
-        with open(ver_path) as fp:
-            exec(fp.read(), version)
-
-        return version['__version__']
-
     def __make_request(self, resource: str, method: str, payload: dict = None,
                        params_to_log: dict = None) -> requests.Response:
-        if method not in ALLOWED_METHODS:
-            SYSTEM_LOG.error(f'Requested method {method} in not allowed. '
-                             f'Allowed methods: {ALLOWED_METHODS}')
-            USER_LOG.error('Sorry, error happened. '
-                           'Please contact the tool support team.')
-        method_func = self.__method_to_function.get(method)
+        assert method in self.__method_to_function  # todo allow all methods
+        method_func = self.__method_to_function[method]
         parameters = dict(url=f'{self.__api_link}{resource}')
         if method == HTTP_GET:
             parameters.update(params=payload)
@@ -65,15 +46,16 @@ class AdapterClient:
             f'Parameters: {params_to_log if params_to_log else {}}; '
             f'Method: {method}.')
         if self.__token and resource != '/login':
-            parameters.update(headers=
-                              {'authorization': f'Bearer {self.__token}'})
+            parameters.update(
+                headers={'authorization': f'Bearer {self.__token}'}
+            )
         else:
             parameters.update(auth=(self.__username, self.__secret))
 
         if parameters.get('headers'):
-            parameters['headers'].update({'Cli-Version': self.get_tool_version()})
+            parameters['headers'].update({'Cli-Version': __version__})
         else:
-            parameters['headers'] = {'Cli-Version': self.get_tool_version()}
+            parameters['headers'] = {'Cli-Version': __version__}
 
         try:
             response = method_func(**parameters)

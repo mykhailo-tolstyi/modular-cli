@@ -1,23 +1,28 @@
 import json
 import os
 from functools import wraps
-from shutil import get_terminal_size
 
 import click
 import yaml
 from prettytable import PrettyTable
 
 from modular_cli import ENTRY_POINT
-from modular_cli.service.config import save_configuration, add_data_to_config, \
-    clean_up_configuration, ROOT_ADMIN_VERSION
-from modular_cli.service.help_client import SetupCommandHandler, LoginCommandHandler, \
-    CleanupCommandHandler, EnableAutocompleteCommandHandler, \
-    DisableAutocompleteCommandHandler, VersionCommandHandler
+from modular_cli.service.config import (
+    add_data_to_config, ROOT_ADMIN_VERSION,
+)
+from modular_cli.service.help_client import (
+    SetupCommandHandler, LoginCommandHandler, CleanupCommandHandler,
+    EnableAutocompleteCommandHandler, DisableAutocompleteCommandHandler,
+    VersionCommandHandler,
+)
 from modular_cli.service.initializer import init_configuration
-from modular_cli.service.utils import save_meta_to_file
-from modular_cli.utils.exceptions import ModularCliBadRequestException, \
-    ModularCliBaseException, HTTP_CODE_EXCEPTION_MAPPING
+from modular_cli.utils.exceptions import (
+    ModularCliBadRequestException, ModularCliBaseException,
+    HTTP_CODE_EXCEPTION_MAPPING,
+)
 from modular_cli.utils.logger import get_logger
+
+_LOG = get_logger(__name__)
 
 
 def init_config(func):
@@ -88,43 +93,6 @@ class TextColors:
         return cls._wrap(cls.WARNING, string)
 
 
-def __prettify_error(action, error):
-    width, _ = get_terminal_size()
-    action = action if action[-1:] == '.' else f'{action}'
-    divider = "=" * (width - 1)
-    return f'{TextColors.FAIL}' \
-           f'{divider}{os.linesep}' \
-           f'{action}' \
-           f'{os.linesep}Reason: {error}' \
-           f'{os.linesep}{divider}' \
-           f'{TextColors.ENDC}'
-
-
-def __extract_parameters(parameters_list):
-    parameters_dict = {}
-    params_values_count = len(parameters_list)
-    index = 0
-    while index < params_values_count:
-        key = parameters_list[index].replace('--', '')
-        # check key duplication
-        if key in parameters_dict.keys():
-            existed_param_value = parameters_dict[key]
-            if existed_param_value and isinstance(existed_param_value, list):
-                parameters_dict[key].append(parameters_list[index + 1])
-            else:
-                parameters_dict[key] = [existed_param_value,
-                                        parameters_list[index + 1]]
-            index += 2
-        elif (index == params_values_count - 1 or
-              parameters_list[index + 1].startswith('-')):
-            parameters_dict[key] = True
-            index += 1
-        else:
-            parameters_dict[key] = parameters_list[index + 1]
-            index += 2
-    return parameters_dict
-
-
 def check_and_extract_received_params(arguments, required_params):
     result = []
     missing = []
@@ -161,8 +129,9 @@ def dynamic_dispatcher(func):
                                                   config_params=ctx.args)
                 return response
 
-            params_indexes = [ctx.args.index(arg) for arg in ctx.args
-                              if arg.startswith('-')]
+            params_indexes = [
+                ctx.args.index(arg) for arg in ctx.args if arg.startswith('-')
+            ]
             if params_indexes:
                 command_end_index, *_ = params_indexes
                 requested_command = ctx.args[:command_end_index]
@@ -182,38 +151,10 @@ def dynamic_dispatcher(func):
             return response
 
         except ModularCliBaseException as e:
-            response = CommandResponse(message=str(e),
-                                       code=e.code)
+            response = CommandResponse(message=str(e), code=e.code)
             return response
 
     return wrapper
-
-
-def configure_command_handler(config_command_help, config_params):
-    configure_args = {
-        '--api_path': True,
-        '--username': True,
-        '--password': True
-    }
-
-    _force_help = True
-    for param_name, is_required in configure_args.items():
-        if param_name in config_params:
-            _force_help = False
-
-    if config_command_help or _force_help:
-        click.echo(SETUP_COMMAND_HELP)
-        exit()
-
-    api_path, username, password = \
-        check_and_extract_received_params(
-            arguments=config_params,
-            required_params=configure_args)
-
-    response = save_configuration(api_link=api_path,
-                                  username=username,
-                                  password=password)
-    return CommandResponse(message=response)
 
 
 def process_meta(server_meta):
@@ -221,48 +162,11 @@ def process_meta(server_meta):
     for mount_point, meta in server_meta.items():
         bare_module_name = mount_point.replace('/', '')
         if not bare_module_name:  # in case of / mount point
-            add_data_to_config(name=ROOT_ADMIN_VERSION,
-                               value=meta['version'])
+            add_data_to_config(name=ROOT_ADMIN_VERSION, value=meta['version'])
             new_meta.update(meta.get('body'))
         else:
             new_meta.update({bare_module_name: meta})
     return new_meta
-
-
-def login_command_handler(config_command_help, config_params):
-    if config_command_help:
-        click.echo(LOGIN_COMMAND_HELP)
-        exit()
-    adapter_sdk = init_configuration()
-    if not adapter_sdk:
-        click.echo(
-            f'API link is not configured. Run \'{ENTRY_POINT} configure'
-            f'\' and try again.')
-        return
-    server_response = adapter_sdk.login()
-
-    if server_response.status_code != 200:
-        raise AssertionError(server_response.reason)
-    else:
-        dict_response = json.loads(server_response.text)
-        new_meta = process_meta(server_meta=dict_response.get('meta', {}))
-        save_meta_to_file(meta=new_meta)
-        add_data_to_config(name='access_token',
-                           value=dict_response.get('jwt'))
-        warnings = dict_response.get('warnings', [])
-        response = CommandResponse(
-            message='Login successful',
-            warnings=warnings
-        )
-        return response
-
-
-def cleanup_command_handler(config_command_help, config_params):
-    if config_command_help:
-        click.echo(CLEANUP_COMMAND_HELP)
-        exit()
-    response = clean_up_configuration()
-    return CommandResponse(message=response)
 
 
 CONFIG_COMMAND_HANDLER_MAPPING = {
@@ -290,9 +194,9 @@ def cli_response():
             view_format = JSON_VIEW
             response = func(*args, **kwargs)
 
-            pretty_response = ResponseFormatter(function_result=response,
-                                                view_format=view_format). \
-                prettify_response()
+            pretty_response = ResponseFormatter(
+                function_result=response, view_format=view_format,
+            ).prettify_response()
             click.echo(pretty_response)
 
         return wrapper
@@ -320,7 +224,7 @@ class ResponseDecorator:
     def __call__(self, fn):
         @wraps(fn)
         def decorated(*args, **kwargs):
-            _FUNC_LOG = get_logger(fn.__name__)
+            _FUNC_LOG = _LOG.getChild(fn.__name__)  # todo remove ?
             view_format = CLI_VIEW
             table_format = kwargs.pop(TABLE_VIEW, False)
             json_format = kwargs.pop(JSON_VIEW, False)
@@ -349,8 +253,15 @@ class ResponseDecorator:
 
 
 class CommandResponse:
-    def __init__(self, code=200, message: str = None, items: list = None,
-                 warnings=None, table_title=None, **kwargs):
+    def __init__(
+            self,
+            code=200,
+            message: str | None = None,
+            items: list | None = None,
+            warnings=None,
+            table_title=None,
+            **kwargs
+    ):
         """
         Considering kwargs to be extra attributes that are specific to each
         module
