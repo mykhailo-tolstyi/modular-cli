@@ -4,7 +4,7 @@ from modular_cli.service.config import ConfigurationProvider, get_credentials_fo
 from modular_cli.utils.logger import get_logger
 from modular_cli.utils.variables import CREDENTIALS_FILE_NAME
 
-SYSTEM_LOG = get_logger('modular_cli.service.initializer')
+SYSTEM_LOG = get_logger(__name__)
 
 
 def init_configuration():

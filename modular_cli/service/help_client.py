@@ -1,19 +1,24 @@
 import json
 import os
 from abc import abstractmethod, ABC
+from http import HTTPStatus
 
 import click
 from tabulate import tabulate
 
 from modular_cli import ENTRY_POINT
-from modular_cli.modular_cli_autocomplete.complete_handler import enable_autocomplete_handler, \
-    disable_autocomplete_handler
-from modular_cli.service.config import save_configuration, clean_up_configuration, \
-    add_data_to_config
+from modular_cli.modular_cli_autocomplete.complete_handler import (
+    enable_autocomplete_handler, disable_autocomplete_handler,
+)
+from modular_cli.service.config import (
+    save_configuration, clean_up_configuration, add_data_to_config,
+)
 from modular_cli.service.initializer import init_configuration
 from modular_cli.service.utils import save_meta_to_file, MODULAR_CLI_META_DIR
-from modular_cli.utils.exceptions import ModularCliBadRequestException, \
-    ModularCliInternalException, ModularCliUnauthorizedException
+from modular_cli.utils.exceptions import (
+    ModularCliBadRequestException, ModularCliInternalException,
+)
+from modular_cli.version import __version__
 
 META_JSON = 'commands_meta.json'
 ROOT_META_JSON = 'root_commands.json'
@@ -339,28 +344,52 @@ class LoginCommandHandler(AbstractStaticCommands):
         from modular_cli.service.decorators import CommandResponse, process_meta
         adapter_sdk = init_configuration()
         server_response = adapter_sdk.login()
-        if server_response.status_code != 200:
-            if server_response.status_code == 401:
-                raise ModularCliUnauthorizedException(
-                    server_response.json()['message'])
-            try:
-                error = server_response.json()['message']
-            except Exception:
-                error = server_response.reason
-            raise ModularCliInternalException(error)
-        else:
-            dict_response = json.loads(server_response.text)
-            new_meta = process_meta(server_meta=dict_response.get('meta', {}))
-            save_meta_to_file(meta=new_meta)
-            add_data_to_config(name='access_token',
-                               value=dict_response.get('jwt'))
-            add_data_to_config(name='version',
-                               value=dict_response.get('version'))
-            warnings = dict_response.get('warnings', [])
-            return CommandResponse(
-                message='Login successful',
-                warnings=warnings
-            )
+        match server_response.status_code:
+            case HTTPStatus.OK:
+                # -> 200
+                dict_response = json.loads(server_response.text)
+                new_meta = process_meta(
+                    server_meta=dict_response.get('meta', {})
+                )
+                save_meta_to_file(meta=new_meta)
+                add_data_to_config(
+                    name='access_token', value=dict_response.get('jwt'),
+                )
+                add_data_to_config(
+                    name='version', value=dict_response.get('version')
+                )
+                warnings = dict_response.get('warnings', [])
+                return CommandResponse(
+                    message='Login successful', warnings=warnings,
+                )
+            case HTTPStatus.UNAUTHORIZED:
+                # -> 401
+                return CommandResponse(
+                    code=HTTPStatus.UNAUTHORIZED,
+                    message='Invalid or missing credentials'
+                )
+            case HTTPStatus.NOT_FOUND:
+                # -> 404
+                message = (
+                    'The requested URL was not found on the server. If you '
+                    'entered the URL manually please check your spelling and '
+                    'try again.'
+                )
+                return CommandResponse(
+                    code=HTTPStatus.NOT_FOUND,
+                    message=message,
+                )
+            case _:
+                try:
+                    error = server_response.json().get(
+                        'message', server_response.reason,
+                    )
+                except Exception: # noqa
+                    error = server_response.reason
+                return CommandResponse(
+                    message=error,
+                    status=server_response.status_code,
+                )
 
 
 class CleanupCommandHandler(AbstractStaticCommands):
@@ -420,17 +449,6 @@ class VersionCommandHandler(AbstractStaticCommands):
         exit()
 
     @staticmethod
-    def _resolve_cli_version():
-        from pathlib import Path
-        version = {}
-        ver_path = os.path.join(Path(__file__).parent.parent.parent, "version.py")
-
-        with open(ver_path) as fp:
-            exec(fp.read(), version)
-
-        return version['__version__']
-
-    @staticmethod
     def _resolve_api_version():
         from modular_cli.service.config import ConfigurationProvider
         return ConfigurationProvider().modular_api_version
@@ -471,12 +489,11 @@ class VersionCommandHandler(AbstractStaticCommands):
             )
             return CommandResponse(message=version)
 
-        cli_version = self._resolve_cli_version()
         api_version = self._resolve_api_version()
 
         api_cli_version_message = \
             f'Modular API {api_version} {os.linesep}' \
-            f'Modular CLI {cli_version}'
+            f'Modular CLI {__version__}'
 
         if detailed:
             modules_version = self._resolve_available_modules_version(

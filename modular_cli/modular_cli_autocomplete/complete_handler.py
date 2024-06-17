@@ -7,7 +7,7 @@ from modular_cli.modular_cli_autocomplete import BASH_COMPLETE_SCRIPT, ZSH_COMPL
     PROFILE_BASH_COMPLETE_SCRIPT, COMPLETE_PROCESS_FILE
 from modular_cli.utils.logger import get_logger
 
-_LOG = get_logger('complete_handler')
+_LOG = get_logger(__name__)
 PYTHON_SYMLINK = 'PYTHON_SYMLINK'
 SCRIPT_PATH = 'SCRIPT_PATH'
 HELP_FILE = 'HELP_FILE'

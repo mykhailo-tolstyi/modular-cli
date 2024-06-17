@@ -13,6 +13,10 @@ BOOLEAN = 'bool'
 METHOD = 'method'
 PARAMS = 'parameters'
 REQUIRED = 'required'
+BOOL_PARAM_MAP = {
+    'true': True,
+    'false': False
+}
 
 
 def validate_params(appropriate_command, passed_parameters):
@@ -146,10 +150,28 @@ def process_input_parameters(token_meta, passed_parameters):
 
         param_name = existed_param['name']
         is_bool_param = existed_param['type'] == 'bool'
+        is_flag_param = existed_param.get('is_flag')
 
-        if is_bool_param:
+        # process bool parameter type
+        if is_flag_param:
             processed_parameters[param_name] = True
             index += 1
+        elif is_bool_param:
+            try:
+                processed_parameters[param_name] = BOOL_PARAM_MAP.get(
+                    passed_parameters[index + 1].lower()
+                )
+                index += 2
+                if not isinstance(processed_parameters[param_name], bool):
+                    raise ModularCliBadRequestException(
+                        f'Missed value for "{param}" parameter. '
+                        f'Bool type expected'
+                    )
+            except IndexError:
+                raise ModularCliBadRequestException(
+                    f'Missed value for "{param}" parameter. '
+                    f'Bool type expected'
+                )
         elif param_name in processed_parameters:
             # process multiple parameter type
             existed_param_value = processed_parameters[param_name]
