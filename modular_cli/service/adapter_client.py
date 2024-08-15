@@ -74,12 +74,22 @@ class AdapterClient:
 
     def login(self) -> requests.Response:
         request = {"meta": "true"}
-        return self.__make_request(resource='/login', method=HTTP_GET,
-                                   payload=request)
+        return self.__make_request(
+            resource='/login',
+            method=HTTP_GET,
+            payload=request,
+        )
 
-    def execute_command(self, resource, parameters, method,
-                        params_to_log) -> requests.Response:
-        return self.__make_request(resource=resource,
-                                   payload=parameters,
-                                   method=method,
-                                   params_to_log=params_to_log)
+    def execute_command(
+            self,
+            resource: str,
+            parameters: dict,
+            method: str,
+            params_to_log: dict,
+    ) -> requests.Response:
+        return self.__make_request(
+            resource=resource,
+            payload=parameters,
+            method=method,
+            params_to_log=params_to_log,
+        )

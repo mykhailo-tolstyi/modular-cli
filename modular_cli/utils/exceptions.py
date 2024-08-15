@@ -5,6 +5,7 @@ class ModularCliBaseException(ABC, Exception):
     """
     Base Modular-CLI exception
     """
+    code: int
 
 
 class ModularCliBadRequestException(ModularCliBaseException):

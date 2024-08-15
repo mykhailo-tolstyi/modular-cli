@@ -161,7 +161,7 @@ To deactivate:
 <a name="project_info"></a>
 ## 6. Project information
 
-**Open Source Code**: https://github.com/epam/modular-cli   
-**Documentation**: https://github.com/epam/modular-cli/blob/develop/README.md  
-**Changelog**: https://github.com/epam/modular-cli/blob/develop/CHANGELOG.md  
+**Source Code**: https://github.com/epam/modular-cli  
+**Documentation**: https://github.com/epam/modular-cli/blob/main/README.md
+**Changelog**: https://github.com/epam/modular-cli/blob/main/CHANGELOG.md
 **Supported Python Version**: 3.10  

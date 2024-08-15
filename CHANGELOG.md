@@ -1,6 +1,23 @@
 CHANGELOG
 =========
 
+
+# [2.0.9] - 2024-07-01
+* Fix `'str' object has no attribute 'items'` issue when `--table` flag is present
+
+# [2.0.8] - 2024-06-25
+* Fix bug in `process_table_view` method causing table breakage if `\r\n` are in
+object set into a table
+
+# [2.0.7] - 2024-06-10
+* Add exit code 1 for handling non-200 status code responses
+
+# [2.0.6] - 2024-05-07
+* Enhance table view by increasing value of `MAX_COLUMNS_WIDTH` and reusing this
+constant instead of using hardcoded value
+* Fix a bug in the `process_table_view` method that breaks the table and shifts
+it if the headers are not in each json block
+
 # [2.0.5] - 2024-04-19
 * Enhance readability by using the `modular setup` command if an invalid link is
 provided by the user.

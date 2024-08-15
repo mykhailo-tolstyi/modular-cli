@@ -70,7 +70,9 @@ def modular_cli(help, command=None, parameters=None, view_type=None):
         response_body = response.json()
     except JSONDecodeError:
         return CommandResponse(
-            message='Can not parse response into json. Please check logs')
+            message='Can not parse response into json. Please check logs',
+            code=400,
+        )
     except Exception:
         raise ModularCliInternalException(
             'Unexpected error happened. Please contact the Maestro support team.'
