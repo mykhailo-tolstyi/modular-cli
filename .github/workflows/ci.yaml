@@ -50,7 +50,7 @@ jobs:
               previous_version_escaped=$(echo "$previous_version" | sed 's/\./\\./g')
 
               # Extract release notes
-              release_notes=$(awk "/## \[$current_version_escaped\]/,/## \[$previous_version_escaped\]/" "$changelog_file" | sed '$d')
+              release_notes=$(awk "/# \[$current_version_escaped\]/,/# \[$previous_version_escaped\]/" "$changelog_file" | sed '$d')
               echo "$release_notes"
           }
 

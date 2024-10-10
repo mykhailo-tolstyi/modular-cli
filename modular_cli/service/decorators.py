@@ -298,7 +298,7 @@ class ResponseFormatter:
 
     @staticmethod
     def is_response_success(response_meta: CommandResponse):
-        return 200 <= response_meta.code <= 206  # + 207, 208, 226
+        return 200 <= response_meta.code < 400
 
     @staticmethod
     def unpack_success_result_values(response_meta: CommandResponse):
