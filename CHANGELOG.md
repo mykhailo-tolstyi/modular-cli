@@ -1,7 +1,6 @@
 CHANGELOG
 =========
 
-
 # [2.0.9] - 2024-07-01
 * Fix `'str' object has no attribute 'items'` issue when `--table` flag is present
 
