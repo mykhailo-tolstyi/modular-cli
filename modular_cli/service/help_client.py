@@ -483,10 +483,10 @@ class VersionCommandHandler(AbstractStaticCommands):
         )
 
         if module:
-            version = commands_meta.get(module, {}).get(
-                'version',
-                'Provided tool does not exists'
-            )
+            version = commands_meta.get(module, {}).get('version')
+            if not version:
+                return CommandResponse(message='Provided tool does not exists',
+                                       code=404)
             return CommandResponse(message=version)
 
         api_version = self._resolve_api_version()

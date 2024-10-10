@@ -1,5 +1,7 @@
+import itertools
 import json
 import os
+import sys
 from functools import wraps
 
 import click
@@ -53,7 +55,7 @@ MODULAR_CLI_TABLE_TITLE = 'table_title'
 MODULAR_CLI_ITEMS = 'items'
 MODULAR_CLI_WARNINGS = 'Warnings'
 MODULAR_CLI_RESPONSE = 'Response'
-MAX_COLUMNS_WIDTH = 30
+MAX_COLUMNS_WIDTH = 46
 POSITIVE_ANSWERS = ['y', 'yes']
 CONFIRMATION_MESSAGE = 'The command`s response is pretty huge and the ' \
                        'result table structure can be broken.\nDo you want ' \
@@ -71,7 +73,6 @@ LOGIN_COMMAND_HELP = f'{os.linesep}Usage: {ENTRY_POINT} login{os.linesep}' \
 CLEANUP_COMMAND_HELP = f'{os.linesep}Usage: {ENTRY_POINT} cleanup [parameters]' \
                        f'{os.linesep}{os.linesep}Removes all the ' \
                        f'configuration data related to the tool.'
-INVOCATIONS_COUNTER = 0
 
 
 class TextColors:
@@ -123,10 +124,11 @@ def dynamic_dispatcher(func):
                 view_type = JSON_VIEW
             if ctx.args[0] in ['setup', 'login', 'cleanup', 'version',
                                'enable_autocomplete', 'disable_autocomplete']:
-                response = configuration_executor(config_command=ctx.args[0],
-                                                  config_command_help=
-                                                  ctx.params['help'],
-                                                  config_params=ctx.args)
+                response = configuration_executor(
+                    config_command=ctx.args[0],
+                    config_command_help=ctx.params['help'],
+                    config_params=ctx.args,
+                )
                 return response
 
             params_indexes = [
@@ -232,22 +234,22 @@ class ResponseDecorator:
                 view_format = TABLE_VIEW
             elif json_format:
                 view_format = JSON_VIEW
-            global VIEW_FORMAT
-            global INVOCATIONS_COUNTER
+            global VIEW_FORMAT  # there is no global
             VIEW_FORMAT = view_format
-            INVOCATIONS_COUNTER += 1
             resp = fn(*args, **kwargs)  # CommandResponse
-            INVOCATIONS_COUNTER -= 1
             if not isinstance(resp, CommandResponse):
                 warn_message = ['Response is broken and does not match '
                                 'CommandResponse object']
                 _FUNC_LOG.warning(warn_message)
-                resp = CommandResponse(message=resp, warnings=warn_message)
-            if not INVOCATIONS_COUNTER:
-                func_result = ResponseFormatter(function_result=resp,
-                                                view_format=view_format)
-                response = self.stdout(func_result.prettify_response())
-                return response
+                resp = CommandResponse(message=resp, warnings=warn_message,
+                                       code=400)
+
+            func_result = ResponseFormatter(function_result=resp,
+                                            view_format=view_format)
+            response = self.stdout(func_result.prettify_response())
+            if not ResponseFormatter.is_response_success(resp):
+                sys.exit(1)
+            return response
 
         return decorated
 
@@ -361,7 +363,11 @@ class ResponseFormatter:
                 MODULAR_CLI_META: response_meta.meta
             }, indent=4)
 
-    def process_table_view(self, status: str, response_meta: CommandResponse):
+    def process_table_view(
+            self,
+            status: str,
+            response_meta: CommandResponse,
+    ) -> PrettyTable:
         response = PrettyTable()
         if status == ERROR_STATUS:
             response.field_names = [MODULAR_CLI_STATUS,
@@ -388,30 +394,42 @@ class ResponseFormatter:
                                        MODULAR_CLI_RESPONSE: 70}
                 response.add_row([status, success_code, message])
             elif table_title and items:
-                all_values = {}
-                uniq_table_headers = []
-                width_table_columns = {}
-                for each_item in items:
-                    if not isinstance(each_item, dict):
-                        each_item = {'Result': each_item}
-                    for table_key, table_value in each_item.items():
-                        if all_values.get(table_key):
-                            all_values[table_key].append(table_value)
-                        else:
-                            all_values[table_key] = [table_value]
-                        uniq_table_headers.extend(
-                            [table_key for table_key in
-                             each_item.keys()
-                             if table_key not in uniq_table_headers])
-                        if not width_table_columns.get(table_key) \
-                                or width_table_columns.get(table_key) \
-                                < len(str(table_value)):
-                            width_table_columns[table_key] \
-                                = len(str(table_value))
-                import itertools
+
+                for i in range(len(items)):
+                    if isinstance(items[i], dict):
+                        for key, value in items[i].items():
+                            if isinstance(value, str):
+                                items[i][key] = value.replace('\r\n', '\n')
+                    elif isinstance(items[i], str):
+                        items[i] = items[i].replace('\r\n', '\n')
+
+                # Step 0: Resolve non-dict elements
+                items = [
+                    {'Result': item} if not isinstance(item, dict) else item
+                    for item in items
+                ]
+
+                # Step 1: Allocate headers
+                uniq_table_headers = list(
+                    dict.fromkeys(key for item in items for key in item.keys())
+                )
+
+                # Step 2: Fill all_values (by allocated headers, not by keys of item)
+                all_values = {
+                    header: [item.get(header, "") for item in items]
+                    for header in uniq_table_headers
+                }
+
+                # Step 3: Calculate max width of columns
+                width_table_columns = {
+                    header: max(len(str(val)) for val in all_values[header])
+                    for header in uniq_table_headers
+                }
+
                 response.field_names = uniq_table_headers
-                response._max_width = {each: MAX_COLUMNS_WIDTH for each in
-                                       uniq_table_headers}
+                response._max_width = {
+                    each: MAX_COLUMNS_WIDTH for each in uniq_table_headers
+                }
                 try:
                     if MAX_COLUMNS_WIDTH * len(uniq_table_headers) > \
                             os.get_terminal_size().columns and \
@@ -427,10 +445,13 @@ class ResponseFormatter:
                     *[j for i, j in all_values.items()], fillvalue='')
                 for lst in table_rows:
                     response.add_row(lst)
-                    row_separator = ['-' * min(
-                        max(width_table_columns[uniq_table_headers[i]],
+                    row_separator = [
+                        '-' * min(max(
+                            width_table_columns[uniq_table_headers[i]],
                             len(str(uniq_table_headers[i]))),
-                        30) for i in range(len(uniq_table_headers))]
+                            MAX_COLUMNS_WIDTH,
+                        ) for i in range(len(uniq_table_headers))
+                    ]
                     response.add_row(row_separator)
                     last_string_index += 2
                 response.del_row(last_string_index - 1)

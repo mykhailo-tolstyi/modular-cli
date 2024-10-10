@@ -27,7 +27,9 @@ def save_configuration(api_link: str, username: str, password: str) -> str:
         folder_path.mkdir(exist_ok=True)
     except OSError:
         SYSTEM_LOG.exception(f'Creation of the directory {folder_path} failed')
-        return f'Could not create configuration folder {folder_path}'
+        raise ModularCliConfigurationException(
+            f'Could not create configuration folder {folder_path}'
+        )
 
     config_data = dict(api_link=valid_link,
                        username=username,
