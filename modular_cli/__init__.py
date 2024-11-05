@@ -1,14 +1,9 @@
-import pkg_resources
+import os
+import sys
 
 
 def get_entry_point() -> str:
-    default_name = 'modular-cli'
-    for item in pkg_resources.working_set:
-        if isinstance(item, pkg_resources.EggInfoDistribution):
-            default_name = item.key
-            break
-
-    return default_name
+    return os.path.basename(sys.argv[0] if sys.argv else 'modular-cli')
 
 
 ENTRY_POINT = get_entry_point()

@@ -1,26 +1,28 @@
+import sys
 from json import JSONDecodeError
 from http import HTTPStatus
 import click
-
 from modular_cli.service.decorators import (
     dynamic_dispatcher, CommandResponse, ResponseDecorator,
 )
 from modular_cli.service.help_client import (
-    retrieve_commands_meta_content, HelpProcessor, LoginCommandHandler,
+    retrieve_commands_meta_content, HelpProcessor,
 )
+from modular_cli.service.config import ConfigurationProvider, add_data_to_config, CONF_ACCESS_TOKEN, CONF_REFRESH_TOKEN
 from modular_cli.service.initializer import init_configuration
 from modular_cli.service.request_processor import prepare_request
 from modular_cli.service.utils import find_token_meta
 from modular_cli.utils.exceptions import ModularCliInternalException
+from modular_cli.service.utils import JWTToken
+from modular_cli.utils.logger import get_logger
 from modular_cli.utils.variables import NO_CONTENT_RESPONSE_MESSAGE
+from modular_cli.service.adapter_client import AdapterClient
 
-CONTEXT_SETTINGS = dict(allow_extra_args=True,
-                        ignore_unknown_options=True)
+CONTEXT_SETTINGS = dict(allow_extra_args=True, ignore_unknown_options=True)
 # if you are going to change the value of the next line - please change
 # correspond value in Modular-API
-RELOGIN_TEXT = 'The provided token has expired due to updates in ' \
-               'commands meta. Please get a new token from \'/login\' ' \
-               'resource'
+
+_LOG = get_logger(__name__)
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -30,40 +32,34 @@ RELOGIN_TEXT = 'The provided token has expired due to updates in ' \
 @click.option('--table', is_flag=True, default=False)
 @ResponseDecorator(click.echo, 'Response is broken.')
 @dynamic_dispatcher
-def modular_cli(help, command=None, parameters=None, view_type=None):
+def modular_cli(
+        command: list | None = None,
+        parameters: list | None = None,
+        help: bool = False,
+        view_type: str | None = None,
+) -> CommandResponse:
     commands_meta = retrieve_commands_meta_content()
-    token_meta = find_token_meta(commands_meta=commands_meta,
-                                 specified_tokens=command)
-    is_help = __is_help_required(token_meta=token_meta,
-                                 specified_parameters=parameters,
-                                 help_flag=help)
+    token_meta = find_token_meta(
+        commands_meta=commands_meta, specified_tokens=command,
+    )
+    is_help = __is_help_required(
+        token_meta=token_meta, specified_parameters=parameters, help_flag=help,
+    )
     if is_help:
-        help_processor = HelpProcessor(requested_command=command,
-                                       commands_meta=commands_meta)
+        help_processor = HelpProcessor(
+            requested_command=command, commands_meta=commands_meta,
+        )
         help_message = help_processor.get_help_message(token_meta=token_meta)
         click.echo(help_message)
-        exit()
+        sys.exit(0)
     resource, method, parameters, params_to_log = prepare_request(
-        token_meta=token_meta,
-        passed_parameters=parameters)
-    adapter_sdk = init_configuration()
+        token_meta=token_meta, passed_parameters=parameters,
+    )
+    adapter_sdk = handle_token_expiration(init_configuration())
 
     response = adapter_sdk.execute_command(
         resource=resource, parameters=parameters,
         method=method, params_to_log=params_to_log)
-    # automated re-login ========================================================
-    # in case if Modular-API return status code "426" we make login command from
-    # Modular-CLI to get updated meta and then execute original command again
-    if (response.status_code == 426) \
-       or \
-       (response.status_code == 401 and RELOGIN_TEXT in response.text):
-        LoginCommandHandler(config_command_help=False,
-                            config_params=['login']).execute_command()
-        fresh_adapter_sdk = init_configuration()
-        response = fresh_adapter_sdk.execute_command(
-            resource=resource, parameters=parameters,
-            method=method, params_to_log=params_to_log)
-    # ===========================================================================
     if response.status_code == HTTPStatus.NO_CONTENT.value:
         return CommandResponse(message=NO_CONTENT_RESPONSE_MESSAGE)
     try:
@@ -71,11 +67,11 @@ def modular_cli(help, command=None, parameters=None, view_type=None):
     except JSONDecodeError:
         return CommandResponse(
             message='Can not parse response into json. Please check logs',
-            code=400,
+            code=int(HTTPStatus.BAD_REQUEST),
         )
     except Exception:
         raise ModularCliInternalException(
-            'Unexpected error happened. Please contact the Maestro support team.'
+            'Unexpected error happened. Please contact the Maestro support team'
         )
 
     return CommandResponse(**response_body, code=response.status_code)
@@ -90,3 +86,27 @@ def __is_help_required(token_meta, specified_parameters, help_flag):
         param for param in token_meta.get('parameters') if param.get('required')
     ]
     return required_parameters and not specified_parameters
+
+
+def handle_token_expiration(adapter_sdk: AdapterClient) -> AdapterClient:
+    """
+    Tries to refresh access token. Returns new adapter client. Can return
+    the save object or new object
+    """
+    at = adapter_sdk.session_token
+    if at and not JWTToken(at).is_expired():
+        _LOG.debug('Access token has not expired yet. Using it')
+        return adapter_sdk
+    # no access token or expired
+    rt = ConfigurationProvider().refresh_token
+    if not rt or JWTToken(rt).is_expired():
+        _LOG.debug('Refresh token does not exist or expired. Cannot refresh')
+        return adapter_sdk
+    resp = adapter_sdk.refresh(rt)
+    if not resp.ok:
+        _LOG.warning(f'Could not refresh token: {resp.text}')
+        return adapter_sdk
+    data = resp.json()
+    add_data_to_config(name=CONF_ACCESS_TOKEN, value=data.get('jwt'))
+    add_data_to_config(name=CONF_REFRESH_TOKEN, value=data.get('refresh_token'))
+    return init_configuration()

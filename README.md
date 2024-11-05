@@ -43,12 +43,12 @@ environment to protect project against dependency breakage.
 [Content ↑](#content)
 <a name="configuration"></a>
 ## 3. Configuration
-By default - entry point for Modular-CLI set as `m3admin` and this name will be used 
+By default - entry point for Modular-CLI set as `modular-cli` and this name will be used 
 in all next commands examples. However, you have ability to customize this name in 
 `setup.py` file before Modular-CLI installation:
 * open `setup.py` file in any convenient editor
-* find property `entry_points` and line `m3admin=modular_cli.modular_cli:modular_cli` in it
-* replace `m3admin` keyword with desired name
+* find property `entry_points` and line `modular-cli=modular_cli.modular_cli:modular_cli` in it
+* replace `modular-cli` keyword with desired name
     
 
 Before first run Modular-CLI should be properly configured. Please create the user
@@ -56,11 +56,11 @@ in [Modular-API](https://git.epam.com/epmc-eoos/m3-modular-admin/-/blob/develop/
 by yourself or ask for support your system administrator. For using 
 Modular-CLI you need to know your username, password and link to Modular-API.  
 After that use the next command:  
-`m3admin setup --username $USER --password $PASSWORD --api_path $LINK_TO_MODULAR_API`  
+`modular-cli setup --username $USER --password $PASSWORD --api_path $LINK_TO_MODULAR_API`  
 Please NOTE: Modular-API server should be in running state when `setup` command will be executed
 
-If you would like update access credentials just execute `m3admin setup` command again.    
-To delete credentials run `m3admin cleanup` command
+If you would like update access credentials just execute `modular-cli setup` command again.    
+To delete credentials run `modular-cli cleanup` command
 
 #### Optional configuration
 The following environment variables could be used:
@@ -72,12 +72,12 @@ The following environment variables could be used:
 First step you should do after configuration it is retrieving jwt token for authorization 
 and available for your user commands meta.
 
-Execute `m3admin login` - to get fresh jwt token and available commands
+Execute `modular-cli login` - to get fresh jwt token and available commands
 ```commandline
 Response:
 Login successful
 ```
-Execute `m3admin` - to see available for your user commands
+Execute `modular-cli` - to see available for your user commands
 ```commandline
 Available modules:
         module_1
@@ -97,14 +97,14 @@ Available commands:
 ```
 Try to execute any available by Modular-API policy command
 ```commandline
-m3admin $module_name $group_name $command_name --$parameter $parameter value
+modular-cli $module_name $group_name $command_name --$parameter $parameter value
 Response:
 $Command execution result
 ```
 In every command you can add `--json` or `--table` flag and change output mode.
 * If `--json` flag was specified:
 ```commandline
-m3admin $module_name $group_name $command_name --$parameter $parameter value --json
+modular-cli $module_name $group_name $command_name --$parameter $parameter value --json
 {
     "Status": "SUCCESS",
     "Code": 200,
@@ -114,7 +114,7 @@ m3admin $module_name $group_name $command_name --$parameter $parameter value --j
 ```
 * If `--table` flag was specified:
 ```commandline
-m3admin $module_name $group_name $command_name --$parameter $parameter value --table
+modular-cli $module_name $group_name $command_name --$parameter $parameter value --table
 +---------+------+----------------------------------------------------+
 |  Status | Code |                      Response                      |
 +---------+------+----------------------------------------------------+
@@ -127,9 +127,9 @@ If you want to extend list of available commands/modules please contact to your 
 administrator with request about adding desired resources.
 
 Commands syntax:  
-`m3admin <available commands> <parameters>`  
-`m3admin <available modules> <group or command> <parameters>`  
-`m3admin <available groups> <subgroup or command> <parameters>`
+`modular-cli <available commands> <parameters>`  
+`modular-cli <available modules> <group or command> <parameters>`  
+`modular-cli <available groups> <subgroup or command> <parameters>`
 
 [Content ↑](#content)
 <a name="autocomplete"></a>
@@ -142,26 +142,26 @@ To activate it do a few steps:
 1. Activate virtual environment by command 
    `source <path_to_venv>/bin/activate`
 2. Create SYMLINK to virtual environment 
-   `sudo ln -s <your_path_to_venv>/bin/m3admin /usr/local/bin/m3admin`
+   `sudo ln -s <your_path_to_venv>/bin/modular-cli /usr/local/bin/modular-cli`
 3. Start a new terminal session
-4. Execute command `sudo m3admin enable_autocomplete`
+4. Execute command `sudo modular-cli enable_autocomplete`
 5. Restart terminal session
 
 To deactivate:
-1. Execute the `sudo m3admin disable_autocomplete`command
+1. Execute the `sudo modular-cli disable_autocomplete`command
 2. Restart terminal session
 
 [Content ↑](#content)
 <a name="schema"></a>
 ## 6. Modular CLI schema
 
-![Schema](pics/modular_cli_schema.png)
+![Schema](https://raw.githubusercontent.com/epam/modular-cli/refs/heads/main/pics/modular_cli_schema.png)
 
 [Content ↑](#content)
 <a name="project_info"></a>
 ## 6. Project information
 
 **Source Code**: https://github.com/epam/modular-cli  
-**Documentation**: https://github.com/epam/modular-cli/blob/main/README.md
-**Changelog**: https://github.com/epam/modular-cli/blob/main/CHANGELOG.md
+**Documentation**: https://github.com/epam/modular-cli/blob/main/README.md  
+**Changelog**: https://github.com/epam/modular-cli/blob/main/CHANGELOG.md  
 **Supported Python Version**: 3.10  

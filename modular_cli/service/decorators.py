@@ -1,6 +1,7 @@
 import itertools
 import json
 import os
+import shutil
 import sys
 from functools import wraps
 
@@ -46,16 +47,17 @@ CLI_VIEW = 'cli'
 ERROR_STATUS = 'FAILED'
 FILE_NAME = 'modular-cli.log'
 SUCCESS_STATUS = 'SUCCESS'
-MODULAR_CLI_STATUS = 'Status'
-MODULAR_CLI_CODE = 'Code'
-MODULAR_CLI_ERROR_TYPE = 'ErrorType'
-MODULAR_CLI_MESSAGE = 'Message'
-MODULAR_CLI_META = 'Meta'
+MODULAR_CLI_STATUS = 'status'
+MODULAR_CLI_CODE = 'code'
+MODULAR_CLI_ERROR_TYPE = 'error_type'
+MODULAR_CLI_MESSAGE = 'message'
+MODULAR_CLI_META = 'meta'
 MODULAR_CLI_TABLE_TITLE = 'table_title'
 MODULAR_CLI_ITEMS = 'items'
-MODULAR_CLI_WARNINGS = 'Warnings'
-MODULAR_CLI_RESPONSE = 'Response'
+MODULAR_CLI_WARNINGS = 'warnings'
+MODULAR_CLI_RESPONSE = 'response'
 MAX_COLUMNS_WIDTH = 46
+FALLBACK_SIZE = (100, 30)  # Default to 100 columns and 30 lines
 POSITIVE_ANSWERS = ['y', 'yes']
 CONFIRMATION_MESSAGE = 'The command`s response is pretty huge and the ' \
                        'result table structure can be broken.\nDo you want ' \
@@ -92,6 +94,14 @@ class TextColors:
     @classmethod
     def yellow(cls, string: str) -> str:
         return cls._wrap(cls.WARNING, string)
+
+    @classmethod
+    def green(cls, string: str) -> str:
+        return cls._wrap(cls.OKGREEN, string)
+
+    @classmethod
+    def red(cls, string: str) -> str:
+        return cls._wrap(cls.FAIL, string)
 
 
 def check_and_extract_received_params(arguments, required_params):
@@ -240,10 +250,10 @@ class ResponseDecorator:
             if not isinstance(resp, CommandResponse):
                 warn_message = ['Response is broken and does not match '
                                 'CommandResponse object']
+                # todo this looks like developer's error. Exception here
                 _FUNC_LOG.warning(warn_message)
                 resp = CommandResponse(message=resp, warnings=warn_message,
                                        code=400)
-
             func_result = ResponseFormatter(function_result=resp,
                                             view_format=view_format)
             response = self.stdout(func_result.prettify_response())
@@ -273,6 +283,10 @@ class CommandResponse:
         self.warnings = warnings or []
         self.items = items
         self.table_title = table_title
+        # Remove status from meta
+        self.status = kwargs.pop('status', None) or kwargs.pop('Status', None)
+        # modular-api provides status of operation which can always be
+        # determined by status code. Here this self.status not used
         self.meta = dict(kwargs)
         if not (self.table_title and self.items) and self.message is None:
             self.warnings.append(
@@ -420,55 +434,37 @@ class ResponseFormatter:
                     for header in uniq_table_headers
                 }
 
-                # Step 3: Calculate max width of columns
-                width_table_columns = {
-                    header: max(len(str(val)) for val in all_values[header])
-                    for header in uniq_table_headers
-                }
-
                 response.field_names = uniq_table_headers
-                response._max_width = {
-                    each: MAX_COLUMNS_WIDTH for each in uniq_table_headers
-                }
-                try:
-                    if MAX_COLUMNS_WIDTH * len(uniq_table_headers) > \
-                            os.get_terminal_size().columns and \
-                            input(CONFIRMATION_MESSAGE).lower().strip() \
-                            in POSITIVE_ANSWERS:
-                        return self.process_json_view(status, response_meta)
-                except Exception:
-                    pass
-                last_string_index = 0
+                response.max_width = MAX_COLUMNS_WIDTH
                 # Fills with an empty content absent items attributes to
                 # align the table
                 table_rows = itertools.zip_longest(
                     *[j for i, j in all_values.items()], fillvalue='')
                 for lst in table_rows:
-                    response.add_row(lst)
-                    row_separator = [
-                        '-' * min(max(
-                            width_table_columns[uniq_table_headers[i]],
-                            len(str(uniq_table_headers[i]))),
-                            MAX_COLUMNS_WIDTH,
-                        ) for i in range(len(uniq_table_headers))
-                    ]
-                    response.add_row(row_separator)
-                    last_string_index += 2
-                response.del_row(last_string_index - 1)
+                    response.add_row(lst, divider=True)
+
+                try:
+                    required_width = str(response).index('\n')
+                    terminal_columns = \
+                        shutil.get_terminal_size(fallback=FALLBACK_SIZE).columns
+                    if required_width > terminal_columns:
+                        user_input = input(CONFIRMATION_MESSAGE).lower().strip()
+                        if user_input in POSITIVE_ANSWERS:
+                            return self.process_json_view(status, response_meta)
+                except Exception: # noqa
+                    pass
 
             # ----- showing meta in table view -----
-            meta = response_meta.meta
-            if meta:
-                meta = TextColors.yellow(
-                    yaml.dump({
-                        self.format_title(k): v for k, v in meta.items()
-                    })
-                )
-                response = meta + os.linesep + str(response)
+            if response_meta.meta:
+                meta = yaml.dump({
+                    self.format_title(k): v for k, v in response_meta.meta.items()
+                })
+                response = meta + str(response)
             # ----- showing meta in table view -----
 
-            response = (table_title + os.linesep if table_title else str()) + \
-                       str(response)
+            meta_status = self.format_title('status') + ': ' + TextColors.green(status) if status != ERROR_STATUS else TextColors.red(status)
+
+            response = (table_title + os.linesep if table_title else str()) + meta_status + os.linesep + str(response)
             if response_meta.warnings:
                 response += self._prettify_warnings(response_meta.warnings)
 

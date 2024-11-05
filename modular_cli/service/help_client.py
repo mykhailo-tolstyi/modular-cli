@@ -1,6 +1,7 @@
 import json
 import os
 from abc import abstractmethod, ABC
+import sys
 from http import HTTPStatus
 
 import click
@@ -12,13 +13,16 @@ from modular_cli.modular_cli_autocomplete.complete_handler import (
 )
 from modular_cli.service.config import (
     save_configuration, clean_up_configuration, add_data_to_config,
+    CONF_REFRESH_TOKEN, CONF_ACCESS_TOKEN
 )
 from modular_cli.service.initializer import init_configuration
 from modular_cli.service.utils import save_meta_to_file, MODULAR_CLI_META_DIR
+from modular_cli.utils.variables import M3ADMIN_MODULE
 from modular_cli.utils.exceptions import (
     ModularCliBadRequestException, ModularCliInternalException,
 )
 from modular_cli.version import __version__
+from modular_cli.service.config import ConfigurationProvider
 
 META_JSON = 'commands_meta.json'
 ROOT_META_JSON = 'root_commands.json'
@@ -129,7 +133,7 @@ class HelpProcessor:
     def prepare_command_path(requested_command):
         return '/' + '/'.join(requested_command)
 
-    def get_help_message(self, token_meta):
+    def get_help_message(self, token_meta: dict):
         if token_meta.get('route'):
             return self.prepare_command_help(
                 token_meta=token_meta,
@@ -210,8 +214,11 @@ class HelpProcessor:
 
         return existed_command_paths, subgroups_name, commands_names, groups_name
 
-    def prepare_command_help(self, token_meta, specified_tokens):
-
+    def prepare_command_help(
+            self,
+            token_meta: dict,
+            specified_tokens: list,
+    ) -> str:
         # command_description, group, subgroup, command_parameters = \
         #     self.resolve_parameters_from_appropriate_command(
         #         appropriate_command=token_meta)
@@ -270,21 +277,27 @@ class AbstractStaticCommands(ABC):
     def validate_params(self, configure_args):
         result = []
         missing = []
-        for arg, meta in configure_args.items():
-            required, type = meta
-            if type == bool:
-                bool_value = True if arg in self.config_params else False
+        for arg, (required, arg_type) in configure_args.items():
+            if arg_type == bool:
+                bool_value = arg in self.config_params
                 result.append(bool_value)
             elif arg in self.config_params:
-                result.append(
-                    self.config_params[self.config_params.index(arg) + 1])
+                try:
+                    result.append(
+                        self.config_params[self.config_params.index(arg) + 1]
+                    )
+                except IndexError:
+                    raise ModularCliBadRequestException(
+                        f'Please provide a value for: "{arg}"'
+                    )
             else:
                 result.append(None)
                 if required:
                     missing.append(arg.replace('--', ''))
         if missing:
             raise ModularCliBadRequestException(
-                f'The following parameters are missing: {", ".join(missing)}')
+                f'The following parameters are missing: {", ".join(missing)}'
+            )
         return result
 
     @abstractmethod
@@ -353,7 +366,11 @@ class LoginCommandHandler(AbstractStaticCommands):
                 )
                 save_meta_to_file(meta=new_meta)
                 add_data_to_config(
-                    name='access_token', value=dict_response.get('jwt'),
+                    name=CONF_ACCESS_TOKEN, value=dict_response.get('jwt'),
+                )
+                add_data_to_config(
+                    name=CONF_REFRESH_TOKEN,
+                    value=dict_response.get('refresh_token'),
                 )
                 add_data_to_config(
                     name='version', value=dict_response.get('version')
@@ -365,7 +382,7 @@ class LoginCommandHandler(AbstractStaticCommands):
             case HTTPStatus.UNAUTHORIZED:
                 # -> 401
                 return CommandResponse(
-                    code=HTTPStatus.UNAUTHORIZED,
+                    code=HTTPStatus.UNAUTHORIZED.value,
                     message='Invalid or missing credentials'
                 )
             case HTTPStatus.NOT_FOUND:
@@ -376,7 +393,7 @@ class LoginCommandHandler(AbstractStaticCommands):
                     'try again.'
                 )
                 return CommandResponse(
-                    code=HTTPStatus.NOT_FOUND,
+                    code=HTTPStatus.NOT_FOUND.value,
                     message=message,
                 )
             case _:
@@ -387,8 +404,7 @@ class LoginCommandHandler(AbstractStaticCommands):
                 except Exception: # noqa
                     error = server_response.reason
                 return CommandResponse(
-                    message=error,
-                    status=server_response.status_code,
+                    message=error, code=server_response.status_code,
                 )
 
 
@@ -439,6 +455,11 @@ class DisableAutocompleteCommandHandler(AbstractStaticCommands):
 
 
 class VersionCommandHandler(AbstractStaticCommands):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._config = ConfigurationProvider()
+
     def define_description(self):
         version_command_help = \
             f'Usage: {ENTRY_POINT} login [parameters]{os.linesep}' \
@@ -446,69 +467,70 @@ class VersionCommandHandler(AbstractStaticCommands):
             f'module version{os.linesep}     --detailed,  ' \
             f' Describes all module(s) version'
         click.echo(version_command_help)
-        exit()
+        sys.exit(0)
 
     @staticmethod
-    def _resolve_api_version():
-        from modular_cli.service.config import ConfigurationProvider
-        return ConfigurationProvider().modular_api_version
-
-    @staticmethod
-    def _resolve_root_admin_version():
-        from modular_cli.service.config import ConfigurationProvider
-        return ConfigurationProvider().root_admin_version
-
-    def _resolve_available_modules_version(self, commands_meta):
-        module_version = [{'Module name': 'm3admin',
-                           'Version': self._resolve_root_admin_version()}]
+    def _resolve_modules_versions(commands_meta):
         for module, meta in commands_meta.items():
-            if meta.get('type', '') != 'module':
+            if meta.get('type') != 'module':
                 continue
+            yield module, meta['version']
 
-            version = meta['version']
-            module_version.append(
-                {'Module name': module, 'Version': version})
-        return module_version
+    def _resolve_m3admin_version(self) -> str | None:
+        # this one is kind of strange exception
+        return self._config.root_admin_version
 
     def execute_command(self):
-        from modular_cli.service.decorators import CommandResponse
-
+        from modular_cli.service.decorators import (CommandResponse, JSON_VIEW,
+                                                    TABLE_VIEW)
         configure_args = {
             '--module': (False, str),
             '--detailed': (False, bool)
         }
         commands_meta = retrieve_commands_meta_content()
-        module, detailed = self.validate_params(
-            configure_args=configure_args
-        )
+        module, detailed = self.validate_params(configure_args=configure_args)
+
+        # reserved names
+        versions = {
+            'server': self._config.modular_api_version,
+            'client': __version__
+        }
 
         if module:
-            version = commands_meta.get(module, {}).get('version')
-            if not version:
-                return CommandResponse(message='Provided tool does not exists',
-                                       code=404)
-            return CommandResponse(message=version)
-
-        api_version = self._resolve_api_version()
-
-        api_cli_version_message = \
-            f'Modular API {api_version} {os.linesep}' \
-            f'Modular CLI {__version__}'
-
-        if detailed:
-            modules_version = self._resolve_available_modules_version(
-                commands_meta=commands_meta
-            )
-
-            if not modules_version:
-                return CommandResponse(
-                    message=f'{api_cli_version_message} {os.linesep * 2}'
-                            f'Can not found any allowed component'
+            if module == M3ADMIN_MODULE:  # exception
+                name, version = M3ADMIN_MODULE, self._resolve_m3admin_version()
+            else:
+                name, version = next(
+                    filter(lambda x: x[0] == module, self._resolve_modules_versions(commands_meta)),
+                    (None, None)
                 )
+            if not version:
+                return CommandResponse(
+                    message=f'Module: "{module}" is not installed', code=404,
+                )
+            versions = {name: version}
+        elif detailed:
+            versions.update(self._resolve_modules_versions(commands_meta))
+            m3admin = self._resolve_m3admin_version()
+            if m3admin:
+                versions[M3ADMIN_MODULE] = m3admin
+
+        # todo kludge because CommandResponse does not suit this command
+        #  and it's better to make this little kludge instead of adding
+        #  some version command-specific logic to CommandResponse
+        #  and ResponseFormatter
+        ctx = click.get_current_context()
+        if ctx.params.get(JSON_VIEW):
+            click.echo(json.dumps({
+                n: {'version': v} for n, v in versions.items()
+            }, indent=4))
+        elif ctx.params.get(TABLE_VIEW):
             return CommandResponse(
-                items=modules_version,
-                table_title=api_cli_version_message
+                items=[{'name': n, 'version': v} for n, v in versions.items()],
+                table_title='Versions'
             )
-        return CommandResponse(
-            message=api_cli_version_message
-        )
+        else:
+            click.echo(os.linesep.join(
+                f'{n.capitalize()}: {v}' for n, v in versions.items())
+            )
+        sys.exit(0)
