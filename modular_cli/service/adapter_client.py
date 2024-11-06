@@ -1,6 +1,5 @@
 import requests
 
-from modular_cli.service.config import ConfigurationProvider
 from modular_cli.utils.exceptions import (
     ModularCliConfigurationException, ModularCliTimeoutException,
 )
@@ -8,8 +7,6 @@ from modular_cli.utils.logger import get_logger
 from modular_cli.version import __version__
 
 SYSTEM_LOG = get_logger(__name__)
-
-CONF = ConfigurationProvider()
 
 HTTP_GET = 'GET'
 HTTP_POST = 'POST'
@@ -45,11 +42,12 @@ class AdapterClient:
             f'API request info: Resource: {resource}; '
             f'Parameters: {params_to_log if params_to_log else {}}; '
             f'Method: {method}.')
-        if self.__token and resource != '/login':
+        # todo fix the kludges with paths
+        if self.__token and resource not in ('/login', '/refresh'):
             parameters.update(
                 headers={'authorization': f'Bearer {self.__token}'}
             )
-        else:
+        elif resource != '/refresh':
             parameters.update(auth=(self.__username, self.__secret))
 
         if parameters.get('headers'):
@@ -80,6 +78,13 @@ class AdapterClient:
             payload=request,
         )
 
+    def refresh(self, refresh_token) -> requests.Response:
+        return self.__make_request(
+            resource='/refresh',
+            method=HTTP_POST,
+            payload={"refresh_token": refresh_token},
+        )
+
     def execute_command(
             self,
             resource: str,
@@ -93,3 +98,7 @@ class AdapterClient:
             method=method,
             params_to_log=params_to_log,
         )
+
+    @property
+    def session_token(self) -> str | None:
+        return self.__token

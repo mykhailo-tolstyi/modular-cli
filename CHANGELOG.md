@@ -1,6 +1,21 @@
 CHANGELOG
 =========
 
+# [2.3.0] - 2024-09-20
+* Fix output of `modular-cli version` command
+
+# [2.2.0] - 2024-08-22
+* Update CLI to support `refresh token` implementation and store it in the 
+`credentials` file
+* Fix issue where JSON conversion prompt appears even when table fits in terminal
+
+# [2.1.0] - 2024-08-20
+* Reduce all output parameter keys to the same style
+
+# [2.0.11] - 2024-08-19
+* Fix `get_entry_point` to return the intended entry point by specifically 
+checking for the default package name in package resources
+
 # [2.0.10] - 2024-07-19
 * Support more successful status codes
 

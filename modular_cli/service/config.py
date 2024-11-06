@@ -98,6 +98,7 @@ CONF_USERNAME = 'username'
 CONF_API_LINK = 'api_link'
 CONF_PASSWORD = 'password'
 CONF_ACCESS_TOKEN = 'access_token'
+CONF_REFRESH_TOKEN = 'refresh_token'
 MODULAR_API_VERSION = 'version'
 ROOT_ADMIN_VERSION = 'm3admin_version'
 
@@ -143,6 +144,10 @@ class ConfigurationProvider:
         return self.config_dict.get(CONF_ACCESS_TOKEN)
 
     @property
+    def refresh_token(self):
+        return self.config_dict.get(CONF_REFRESH_TOKEN)
+
+    @property
     def modular_api_version(self):
         return self.config_dict.get(MODULAR_API_VERSION)
 
@@ -165,6 +170,9 @@ def save_temporary_user_data(username, data):
 
 
 def add_data_to_config(name: str, value: str):
+    # todo loading and dumping yaml for the sake of one value - not worth it.
+    # todo I want to add data to config, but config does not exists and
+    #  i get error - silly
     config_file_path = get_credentials_folder() / CREDENTIALS_FILE_NAME
     if not Path(config_file_path).exists():
         SYSTEM_LOG.exception(f'Modular-CLI tool is not configured. Please '
