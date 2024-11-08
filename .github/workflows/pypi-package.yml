@@ -17,6 +17,14 @@ jobs:
   build-package:
     uses: ./.github/workflows/build-and-check-python-package.yml
 
+  debug:  
+    runs-on: ubuntu-latest
+    steps:
+    - name: Dump vars context
+      env:
+        VARS_JSON: ${{ toJSON(vars) }}
+      run: echo "${VARS_JSON}"
+
   # Upload to Test PyPI on every commit on main
   release-test-pypi:
     name: Publish dev package to test.pypi.org
