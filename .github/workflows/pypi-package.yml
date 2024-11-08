@@ -40,11 +40,6 @@ jobs:
           name: Packages
           path: dist
 
-      - name: Upload package to Test PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-
   # Upload to PyPI on every GitHub Release
   release-pypi:
     name: Publish released package to pypi.org
@@ -59,6 +54,3 @@ jobs:
         with:
           name: Packages
           path: dist
-
-      - name: Upload package to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
